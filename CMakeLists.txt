@@ -10,7 +10,7 @@ INCLUDE(iodrivers_baseBase)
 if (ROCK_TEST_ENABLED)
     enable_testing()
     find_package(Syskit REQUIRED)
-    syskit_orogen_tests(test)
+    syskit_orogen_tests(test VERBOSE)
 endif()
 
 option(INSTALL_OROGEN_TEST_HELPERS
