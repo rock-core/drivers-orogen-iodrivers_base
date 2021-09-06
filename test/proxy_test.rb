@@ -2,6 +2,9 @@
 
 require_relative "./orogen_test_helpers"
 
+def debug_time
+    Time.now.strftime("%H:%M:%S.%N")
+end
 using_task_library "iodrivers_base"
 
 describe OroGen.iodrivers_base.Proxy do
@@ -20,7 +23,9 @@ describe OroGen.iodrivers_base.Proxy do
     describe "file-descriptor based I/O" do
         before do
             @local_socket = setup_iodrivers_base_with_fd(@subject_task)
+            puts "#{name} #{debug_time} CONFIGURE&START"
             syskit_configure_and_start(@subject_task)
+            puts "#{name} #{debug_time} DONE CONFIGURE&START"
         end
 
         it "forwards the data received on the FD to rx" do
@@ -31,7 +36,10 @@ describe OroGen.iodrivers_base.Proxy do
         end
 
         it "forwards the data received on tx to the FD" do
+            puts "#{name} #{debug_time} WRITE"
             syskit_write @subject_task.tx_port, raw_packet_from_s("\x1\x2\x3\x4")
+            puts "#{name} #{debug_time} DONE WRITE"
+            puts "#{name} #{debug_time} READ"
             assert_equal "\x1\x2\x3\x4", read_with_timeout(@local_socket, 4)
         end
     end

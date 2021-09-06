@@ -3,6 +3,7 @@
 #include "Proxy.hpp"
 #include <iodrivers_base/Driver.hpp>
 
+using base::Time;
 using namespace iodrivers_base;
 
 namespace
@@ -40,6 +41,7 @@ Proxy::~Proxy()
 
 bool Proxy::configureHook()
 {
+    std::cerr << Time::now() << " ENTER CONFIGURE" << std::endl;
     buffer_size = createProxyDriver();
     rx_packet.data.reserve(buffer_size);
     tx_packet.data.reserve(buffer_size);
@@ -49,6 +51,7 @@ bool Proxy::configureHook()
     if (! ProxyBase::configureHook())
         return false;
 
+    std::cerr << Time::now() << " CONFIGURED" << std::endl;
     return true;
 }
 
@@ -74,8 +77,10 @@ void Proxy::readPacket(RawPacket& packet)
 
 bool Proxy::startHook()
 {
+    std::cerr << Time::now() << " ENTER START" << std::endl;
     if (! ProxyBase::startHook())
         return false;
+    std::cerr << Time::now() << " STARTED" << std::endl;
     return true;
 }
 void Proxy::updateHook()
@@ -83,7 +88,11 @@ void Proxy::updateHook()
     ProxyBase::updateHook();
 
     while (_tx.read(tx_packet, false) == RTT::NewData)
+    {
+        std::cerr << Time::now() << " RECEIVED TX" << std::endl;
         writePacket(tx_packet);
+        std::cerr << Time::now() << " WROTE " << tx_packet.data.size() << " BYTES" << std::endl;
+    }
 }
 void Proxy::processIO()
 {
