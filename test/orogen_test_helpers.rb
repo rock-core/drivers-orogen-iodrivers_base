@@ -66,12 +66,27 @@ module IODriversBase
         # The "peering" task has a 'in' port and 'out' port. The direction is
         # relative to the task, so write to `out_port` to send data to the driver,
         # and read from `in_port` to read data from it.
-        def setup_iodrivers_base_with_ports(task)
-            port_io = syskit_stub_deploy_configure_and_start(
-                PortIO.use("test" => task)
-            )
-            syskit_configure_and_start(port_io, recursive: false)
-            syskit_configure_and_start(port_io.raw_io_child, recursive: false)
+        #
+        # @param [Boolean] configure_and_start whether the setup should also configure
+        #   and start the given task. The englobing composition and the I/O stub are
+        #   always configured and start. This is true for historical reasons. Assume
+        #   that it will eventually be set to false and then removed.
+        def setup_iodrivers_base_with_ports(task, configure_and_start: true)
+            port_io = syskit_stub_and_deploy(PortIO.use("test" => task))
+
+            if configure_and_start
+                Roby.warn_deprecated(
+                    "setup_iodrivers_base_with_ports used to configure and start the "\
+                    "task under test. This is still the default behavior, but will be "\
+                    "changed in the future. Set configure_and_start to false to prepare "\
+                    "for the new behavior"
+                )
+                syskit_configure_and_start(port_io)
+            else
+                syskit_configure_and_start(port_io, recursive: false)
+                syskit_configure_and_start(port_io.raw_io_child, recursive: false)
+            end
+
             port_io.raw_io_child
         end
 
