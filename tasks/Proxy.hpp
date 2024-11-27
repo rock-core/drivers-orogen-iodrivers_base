@@ -25,18 +25,15 @@ iodrivers_base::Driver onto the io_read_listener and io_write_listener ports
     class Proxy : public ProxyBase
     {
 	friend class ProxyBase;
-    public:
-        static const int DUMMY_BUFFER_SIZE = 1024;
-
     protected:
         virtual int createProxyDriver();
         virtual void writePacket(RawPacket const& packet);
         virtual void readPacket(RawPacket& packet);
 
         void processIO();
-        int buffer_size;
-        std::vector<boost::uint8_t> packet_buffer;
-        iodrivers_base::RawPacket rx_packet, tx_packet;
+        int m_buffer_size = 0;
+        std::vector<boost::uint8_t> m_packet_buffer;
+        iodrivers_base::RawPacket m_rx_packet, m_tx_packet;
 
     public:
         /** TaskContext constructor for Proxy
