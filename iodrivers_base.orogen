@@ -115,6 +115,17 @@ task_context "test::PeriodicTask", subclasses: "Task" do
     periodic 0.1
 end
 
+# Test task used to verify the behavior of iodrivers_base::Task in a port-driven
+# setting
+#
+# It will fail during execution if iodrivers_base::Task's implementation does
+# call processIO without any data on input
+task_context "test::PortDriven", subclasses: "Task" do
+    output_port "rx", "/iodrivers_base/RawPacket"
+
+    port_driven
+end
+
 # Test task that transitions to exception() from within processIO
 #
 # It is used to verify that this does not lead to an infinite loop if the

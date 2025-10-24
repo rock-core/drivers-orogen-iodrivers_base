@@ -81,24 +81,14 @@ bool Task::configureHook()
 
     mIOWaitTimeout = _io_wait_timeout.get();
 
+    configureActivityAperiodicTimeout();
+    configureFDActivity();
+
     if (mDriver->getFileDescriptor() != Driver::INVALID_FD)
     {
         if (_io_raw_in.connected())
             throw std::runtime_error("cannot use the io_raw_in port and a normal I/O mechanism at the same time");
 
-        RTT::extras::FileDescriptorActivity* fd_activity =
-            getActivity<RTT::extras::FileDescriptorActivity>();
-        if (fd_activity)
-        {
-            fd_activity->watch(mDriver->getFileDescriptor());
-
-            if (mIOWaitTimeout.isNull()) {
-                fd_activity->setTimeout(_io_read_timeout.get().toMilliseconds());
-            }
-            else {
-                fd_activity->setTimeout(mIOWaitTimeout.toMilliseconds() / 10);
-            }
-        }
     }
     else if (_io_raw_in.connected())
     {
@@ -109,6 +99,35 @@ bool Task::configureHook()
     mDriver->setWriteTimeout(_io_write_timeout.get());
 
     return true;
+}
+
+void Task::configureActivityAperiodicTimeout() {
+    NANO_TIME timeout_ns;
+
+    if (mIOWaitTimeout.isNull()) {
+        timeout_ns = _io_read_timeout.get().toMicroseconds() * 1000 / 10;
+    }
+    else {
+        timeout_ns = mIOWaitTimeout.toMicroseconds() * 1000 / 10;
+    }
+
+    auto current = getActivity()->getAperiodicTriggerTimeout();
+    if (current == 0 || current > timeout_ns) {
+        getActivity()->setAperiodicTriggerTimeout(timeout_ns);
+    }
+}
+
+void Task::configureFDActivity() {
+    if (mDriver->getFileDescriptor() == Driver::INVALID_FD) {
+        return;
+    }
+
+    auto* fd_activity = getActivity<RTT::extras::FileDescriptorActivity>();
+    if (!fd_activity) {
+        return;
+    }
+
+    fd_activity->watch(mDriver->getFileDescriptor());
 }
 
 bool Task::startHook()
@@ -142,6 +161,7 @@ bool Task::hasIO()
 void Task::updateHook()
 {
     TaskBase::updateHook();
+
 
     if (mDriver->getFileDescriptor() != Driver::INVALID_FD)
     {

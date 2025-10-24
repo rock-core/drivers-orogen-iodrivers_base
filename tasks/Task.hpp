@@ -119,6 +119,12 @@ namespace iodrivers_base {
         /** Updates the IO status information on the io_status port */
         void updateIOStatus();
 
+        /** Configuration specific to a FileDescriptorActivity */
+        void configureFDActivity();
+
+        /** Configure the aperiodic trigger timeout for the activity*/
+        void configureActivityAperiodicTimeout();
+
     public:
         Task(std::string const& name = "iodrivers_base::Task");
         Task(std::string const& name, RTT::ExecutionEngine* engine);
