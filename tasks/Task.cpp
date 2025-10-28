@@ -12,6 +12,7 @@ using namespace iodrivers_base;
 
 Task::Task(std::string const& name)
     : TaskBase(name)
+    , mRuntimeErrorIOProcessingEnabled(false)
     , mDriver(0), mStream(0), mListener(0)
 {
     _io_write_timeout.set(base::Time::fromSeconds(1));
@@ -21,6 +22,7 @@ Task::Task(std::string const& name)
 
 Task::Task(std::string const& name, RTT::ExecutionEngine* engine)
     : TaskBase(name, engine)
+    , mRuntimeErrorIOProcessingEnabled(false)
     , mDriver(0), mStream(0), mListener(0)
 {
     _io_write_timeout.set(base::Time::fromSeconds(1));
@@ -30,6 +32,14 @@ Task::Task(std::string const& name, RTT::ExecutionEngine* engine)
 
 Task::~Task()
 {
+}
+
+bool Task::getRuntimeErrorIOProcessingEnabled() const {
+    return mRuntimeErrorIOProcessingEnabled;
+}
+
+void Task::setRuntimeErrorIOProcessingEnabled(bool flag) {
+    mRuntimeErrorIOProcessingEnabled = flag;
 }
 
 void Task::setDriver(Driver* driver)
@@ -162,7 +172,26 @@ void Task::updateHook()
 {
     TaskBase::updateHook();
 
+    processPendingIO(&Task::processIO);
+    processDriverState();
+}
 
+
+void Task::errorHook()
+{
+    TaskBase::errorHook();
+
+    if (mRuntimeErrorIOProcessingEnabled) {
+        processPendingIO(&Task::errorProcessIO);
+        processDriverState();
+    }
+}
+
+void Task::errorProcessIO() {
+    processIO();
+}
+
+void Task::processDriverState() {
     if (mDriver->getFileDescriptor() != Driver::INVALID_FD)
     {
         RTT::extras::FileDescriptorActivity* fd_activity =
@@ -174,16 +203,24 @@ void Task::updateHook()
         }
     }
 
-    if ((base::Time::now() - mLastStatus) > _io_status_interval.get())
+    if ((base::Time::now() - mLastStatus) > _io_status_interval.get()) {
         updateIOStatus();
+    }
 
+    if (!mIOWaitDeadline.isNull() && base::Time::now() > mIOWaitDeadline) {
+        processIOTimeout();
+    }
+}
+
+void Task::processPendingIO(void (Task::*callback)()) {
     while (hasIO()) {
         do {
             if (!mIOWaitDeadline.isNull()) {
                 mIOWaitDeadline = base::Time::now() + mIOWaitTimeout;
             }
+
             try {
-                processIO();
+                (this->*callback)();
             }
             catch(iodrivers_base::TimeoutError& e) {
                 if (!_handle_iodrivers_base_timeout.get()) {
@@ -205,11 +242,8 @@ void Task::updateHook()
         }
         while (mDriver->hasPacket());
     }
-
-    if (!mIOWaitDeadline.isNull() && base::Time::now() > mIOWaitDeadline) {
-        processIOTimeout();
-    }
 }
+
 
 void Task::processIOTimeout()
 {

@@ -109,6 +109,32 @@ will have a full stop/cleanup/configure/start cycle if reconfiguration is
 needed. You should therefore not care about dynamic reconfiguration in first
 implementations.
 
+## Runtime Errors
+
+While the runtime error support in oroGen components is usually seldom used, it
+does have a very good use case in device drivers. The semantic of the state is
+that of a "degraded state" (with the actual state the component is in definining
+how the component's function is actually degraded).
+
+In the case of devices, it can be used when the primary function of the device
+is not available - for instance for reason of safety, or the presence of an
+alarm, but we need the driver to run to know whether the cause of the
+malfunction disappears. Examples:
+
+- a device using subsea transducers (e.g. sonar, USBL) is not in water, but we
+  need the device's status to know whether it is in the water.
+- a motor gets into an overtemperature failure mode, but we need the motor
+  feedback to know it gets out of this mode.
+
+`iodrivers_base` originally did *not* have any support for this kind of states.
+Therefore, for backward compatibility reasons, the support needs to be enabled
+in C++ by calling `setRuntimeErrorIOProcessing(true)` (e.g. in the constructor)
+
+Once this is done, the common expected driver-related error handling will be
+enabled (output of I/O status, handling of FD errors and of `io_wait_timeout`).
+IO processing has its own hook called `errorProcessIO`. But in this case, a
+default implementation exists, which calls `processIO`.
+
 ## Details about the iodrivers_base::Task interface
 
 This interface provides two means of communication between the device and the

@@ -382,4 +382,36 @@ describe OroGen.iodrivers_base.Task do
         expect_execution { syskit_write subject_task.tx_port, packet }
             .to { emit subject_task.io_timeout_event }
     end
+
+    describe "behaviour in runtime error state" do
+        attr_reader :subject_task
+
+        before do
+            @subject_task = syskit_deploy(
+                OroGen.iodrivers_base.test.RuntimeErrorBehaviourTask
+                      .deployed_as("task_under_test")
+            )
+
+            @subject_task.properties.io_read_timeout = Time.at(1)
+            @local_socket = setup_iodrivers_base_with_fd(@subject_task)
+        end
+
+        it "does not do any processing if the support is disabled" do
+            @subject_task.properties.runtime_error_io_processing_enabled = false
+            syskit_configure(subject_task)
+            expect_execution { subject_task.start! }
+                .to_emit subject_task.custom_error_event
+            expect_execution { @local_socket.write("\x1\x2\x3\x4") }
+                .to_have_no_new_sample subject_task.rx_port, at_least_during: 1
+        end
+
+        it "calls errorProcessIO if the support is enabled" do
+            @subject_task.properties.runtime_error_io_processing_enabled = true
+            syskit_configure(subject_task)
+            expect_execution { subject_task.start! }
+                .to_emit subject_task.custom_error_event
+            expect_execution { @local_socket.write("\x1\x2\x3\x4") }
+                .to_have_one_new_sample subject_task.rx_port
+        end
+    end
 end
