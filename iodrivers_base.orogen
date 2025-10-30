@@ -130,5 +130,16 @@ end
 #
 # It is used to verify that this does not lead to an infinite loop if the
 # I/O is left in the driver
+task_context "test::RuntimeErrorBehaviourTask",
+             subclasses: "iodrivers_base::test::FDTask" do
+    property "runtime_error_io_processing_enabled", "bool", false
+
+    error_states "CUSTOM_ERROR"
+end
+
+# Test task that transitions to exception() from within processIO
+#
+# It is used to verify that this does not lead to an infinite loop if the
+# I/O is left in the driver
 task_context "test::ExceptionInProcessIOTask", subclasses: "iodrivers_base::test::PeriodicTask" do
 end
