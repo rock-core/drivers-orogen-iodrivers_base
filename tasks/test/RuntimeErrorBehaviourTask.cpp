@@ -13,14 +13,14 @@ namespace {
     class DummyDriver : public iodrivers_base::Driver {
     public:
         DummyDriver()
-            : iodrivers_base::Driver(4)
+            : iodrivers_base::Driver(DUMMY_BUFFER_SIZE)
         {
         }
 
         int extractPacket(boost::uint8_t const* buffer, size_t size) const
         {
-            if (size >= 4) {
-                return 4;
+            if (size >= DUMMY_BUFFER_SIZE) {
+                return DUMMY_BUFFER_SIZE;
             }
             return 0;
         }

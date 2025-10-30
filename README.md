@@ -113,8 +113,7 @@ implementations.
 
 While the runtime error support in oroGen components is usually seldom used, it
 does have a very good use case in device drivers. The semantic of the state is
-that of a "degraded state" (with the actual state the component is in definining
-how the component's function is actually degraded).
+that of a "degraded state".
 
 In the case of devices, it can be used when the primary function of the device
 is not available - for instance for reason of safety, or the presence of an
