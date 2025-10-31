@@ -71,6 +71,9 @@ module IODriversBase
         #   and start the given task. The englobing composition and the I/O stub are
         #   always configured and start. This is true for historical reasons. Assume
         #   that it will eventually be set to false and then removed.
+        # @return [RawIOService] a ruby task that provides RawIOService. Use `in`
+        #   to receive data from the iodrivers_base component and `out` to send
+        #   data
         def setup_iodrivers_base_with_ports(task, configure_and_start: true)
             port_io = syskit_stub_and_deploy(PortIO.use("test" => task))
 

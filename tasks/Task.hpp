@@ -66,6 +66,8 @@ namespace iodrivers_base {
     {
 	friend class TaskBase;
     friend class ConfigureGuard;
+        bool mRuntimeErrorIOProcessingEnabled;
+
     protected:
         Driver* mDriver;
 
@@ -104,6 +106,10 @@ namespace iodrivers_base {
          */
         bool hasIO();
 
+        void processDriverState();
+
+        void processPendingIO(void (Task::*callback)());
+
         /** Called back by the updateHook in case we have not received any data
          * for the duration of io_wait_timeout
          *
@@ -116,8 +122,33 @@ namespace iodrivers_base {
          */
         virtual void processIO() = 0;
 
+        /** Returns whether \c errorHook will perform I/O processing
+         *
+         * @see setRuntimeErrorIOProcessingEnabled
+        */
+        bool getRuntimeErrorIOProcessingEnabled() const;
+
+        /** Changes whether \c errorHook will perform I/O processing
+         *
+         * The default is to NOT do any processing in errorHook, for historical
+         * reasons. We recommend setting this to true if you use runtime error
+         * states
+         */
+        void setRuntimeErrorIOProcessingEnabled(bool flag);
+
+        /** Called back by the errorHook. It must be reimplemented to process
+         * all packets that are currently queued in the driver
+         */
+        virtual void errorProcessIO();
+
         /** Updates the IO status information on the io_status port */
         void updateIOStatus();
+
+        /** Configuration specific to a FileDescriptorActivity */
+        void configureFDActivity();
+
+        /** Configure the aperiodic trigger timeout for the activity*/
+        void configureActivityAperiodicTimeout();
 
     public:
         Task(std::string const& name = "iodrivers_base::Task");
@@ -146,21 +177,19 @@ namespace iodrivers_base {
          */
         bool startHook();
 
-        /** This hook is called by Orocos when the component is in the Running
-         * state, at each activity step. Here, the activity gives the "ticks"
-         * when the hook should be called.
+        /** Handling of FD-related errors, timeout and I/O processing in runtime
+         * state
          *
-         * The error(), exception() and fatal() calls, when called in this hook,
-         * allow to get into the associated RunTimeError, Exception and
-         * FatalError states.
-         *
-         * In the first case, updateHook() is still called, and recover() allows
-         * you to go back into the Running state.  In the second case, the
-         * errorHook() will be called instead of updateHook(). In Exception, the
-         * component is stopped and recover() needs to be called before starting
-         * it again. Finally, FatalError cannot be recovered.
+         * This calls processIO in the subclass
          */
         void updateHook();
+
+        /** Handling of FD-related errors, timeout and I/O processing in runtime error
+         * states
+         *
+         * This calls errorProcessIO in the subclass
+         */
+        void errorHook();
 
         void exceptionHook();
 

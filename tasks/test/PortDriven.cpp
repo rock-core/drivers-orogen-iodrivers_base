@@ -1,6 +1,6 @@
 /* Generated from orogen/lib/orogen/templates/tasks/Task.cpp */
 
-#include "FDTask.hpp"
+#include "PortDriven.hpp"
 #include "../ConfigureGuard.hpp"
 
 using namespace iodrivers_base;
@@ -26,16 +26,22 @@ namespace
     };
 }
 
-FDTask::FDTask(std::string const& name)
-    : FDTaskBase(name)
+PortDriven::PortDriven(std::string const& name)
+    : PortDrivenBase(name)
 {
 }
 
-FDTask::~FDTask()
+PortDriven::~PortDriven()
 {
 }
 
-bool FDTask::configureHook()
+
+
+/// The following lines are template definitions for the various state machine
+// hooks defined by Orocos::RTT. See PortDriven.hpp for more detailed
+// documentation about them.
+
+bool PortDriven::configureHook()
 {
     unique_ptr<Driver> driver(new DummyDriver());
     // Un-configure the device driver if the configure fails.
@@ -48,7 +54,7 @@ bool FDTask::configureHook()
 
     // This is MANDATORY and MUST be called after the setDriver but before you do
     // anything with the driver
-    if (!FDTaskBase::configureHook())
+    if (!PortDrivenBase::configureHook())
         return false;
 
     // If some device configuration was needed, it must be done after the
@@ -59,17 +65,17 @@ bool FDTask::configureHook()
     return true;
 
 }
-bool FDTask::startHook()
+bool PortDriven::startHook()
 {
-    if (! FDTaskBase::startHook())
+    if (! PortDrivenBase::startHook())
         return false;
     return true;
 }
-void FDTask::updateHook()
+void PortDriven::updateHook()
 {
-    FDTaskBase::updateHook();
+    PortDrivenBase::updateHook();
 }
-void FDTask::processIO()
+void PortDriven::processIO()
 {
     uint8_t buffer[DUMMY_BUFFER_SIZE];
     int packet_size = mDriver->readPacket(buffer, DUMMY_BUFFER_SIZE);
@@ -79,15 +85,16 @@ void FDTask::processIO()
     packet.data = std::vector<uint8_t>(buffer, buffer + packet_size);
     _rx.write(packet);
 }
-void FDTask::errorHook()
+
+void PortDriven::errorHook()
 {
-    FDTaskBase::errorHook();
+    PortDrivenBase::errorHook();
 }
-void FDTask::stopHook()
+void PortDriven::stopHook()
 {
-    FDTaskBase::stopHook();
+    PortDrivenBase::stopHook();
 }
-void FDTask::cleanupHook()
+void PortDriven::cleanupHook()
 {
-    FDTaskBase::cleanupHook();
+    PortDrivenBase::cleanupHook();
 }

@@ -12,6 +12,7 @@ using namespace iodrivers_base;
 
 Task::Task(std::string const& name)
     : TaskBase(name)
+    , mRuntimeErrorIOProcessingEnabled(false)
     , mDriver(0), mStream(0), mListener(0)
 {
     _io_write_timeout.set(base::Time::fromSeconds(1));
@@ -21,6 +22,7 @@ Task::Task(std::string const& name)
 
 Task::Task(std::string const& name, RTT::ExecutionEngine* engine)
     : TaskBase(name, engine)
+    , mRuntimeErrorIOProcessingEnabled(false)
     , mDriver(0), mStream(0), mListener(0)
 {
     _io_write_timeout.set(base::Time::fromSeconds(1));
@@ -30,6 +32,14 @@ Task::Task(std::string const& name, RTT::ExecutionEngine* engine)
 
 Task::~Task()
 {
+}
+
+bool Task::getRuntimeErrorIOProcessingEnabled() const {
+    return mRuntimeErrorIOProcessingEnabled;
+}
+
+void Task::setRuntimeErrorIOProcessingEnabled(bool flag) {
+    mRuntimeErrorIOProcessingEnabled = flag;
 }
 
 void Task::setDriver(Driver* driver)
@@ -81,24 +91,14 @@ bool Task::configureHook()
 
     mIOWaitTimeout = _io_wait_timeout.get();
 
+    configureActivityAperiodicTimeout();
+    configureFDActivity();
+
     if (mDriver->getFileDescriptor() != Driver::INVALID_FD)
     {
         if (_io_raw_in.connected())
             throw std::runtime_error("cannot use the io_raw_in port and a normal I/O mechanism at the same time");
 
-        RTT::extras::FileDescriptorActivity* fd_activity =
-            getActivity<RTT::extras::FileDescriptorActivity>();
-        if (fd_activity)
-        {
-            fd_activity->watch(mDriver->getFileDescriptor());
-
-            if (mIOWaitTimeout.isNull()) {
-                fd_activity->setTimeout(_io_read_timeout.get().toMilliseconds());
-            }
-            else {
-                fd_activity->setTimeout(mIOWaitTimeout.toMilliseconds() / 10);
-            }
-        }
     }
     else if (_io_raw_in.connected())
     {
@@ -109,6 +109,35 @@ bool Task::configureHook()
     mDriver->setWriteTimeout(_io_write_timeout.get());
 
     return true;
+}
+
+void Task::configureActivityAperiodicTimeout() {
+    NANO_TIME timeout_ns;
+
+    if (mIOWaitTimeout.isNull()) {
+        timeout_ns = _io_read_timeout.get().toMicroseconds() * 1000 / 10;
+    }
+    else {
+        timeout_ns = mIOWaitTimeout.toMicroseconds() * 1000 / 10;
+    }
+
+    auto current = getActivity()->getAperiodicTriggerTimeout();
+    if (current == 0 || current > timeout_ns) {
+        getActivity()->setAperiodicTriggerTimeout(timeout_ns);
+    }
+}
+
+void Task::configureFDActivity() {
+    if (mDriver->getFileDescriptor() == Driver::INVALID_FD) {
+        return;
+    }
+
+    auto* fd_activity = getActivity<RTT::extras::FileDescriptorActivity>();
+    if (!fd_activity) {
+        return;
+    }
+
+    fd_activity->watch(mDriver->getFileDescriptor());
 }
 
 bool Task::startHook()
@@ -143,6 +172,26 @@ void Task::updateHook()
 {
     TaskBase::updateHook();
 
+    processPendingIO(&Task::processIO);
+    processDriverState();
+}
+
+
+void Task::errorHook()
+{
+    TaskBase::errorHook();
+
+    if (mRuntimeErrorIOProcessingEnabled) {
+        processPendingIO(&Task::errorProcessIO);
+        processDriverState();
+    }
+}
+
+void Task::errorProcessIO() {
+    processIO();
+}
+
+void Task::processDriverState() {
     if (mDriver->getFileDescriptor() != Driver::INVALID_FD)
     {
         RTT::extras::FileDescriptorActivity* fd_activity =
@@ -154,16 +203,24 @@ void Task::updateHook()
         }
     }
 
-    if ((base::Time::now() - mLastStatus) > _io_status_interval.get())
+    if ((base::Time::now() - mLastStatus) > _io_status_interval.get()) {
         updateIOStatus();
+    }
 
+    if (!mIOWaitDeadline.isNull() && base::Time::now() > mIOWaitDeadline) {
+        processIOTimeout();
+    }
+}
+
+void Task::processPendingIO(void (Task::*callback)()) {
     while (hasIO()) {
         do {
             if (!mIOWaitDeadline.isNull()) {
                 mIOWaitDeadline = base::Time::now() + mIOWaitTimeout;
             }
+
             try {
-                processIO();
+                (this->*callback)();
             }
             catch(iodrivers_base::TimeoutError& e) {
                 if (!_handle_iodrivers_base_timeout.get()) {
@@ -185,11 +242,8 @@ void Task::updateHook()
         }
         while (mDriver->hasPacket());
     }
-
-    if (!mIOWaitDeadline.isNull() && base::Time::now() > mIOWaitDeadline) {
-        processIOTimeout();
-    }
 }
+
 
 void Task::processIOTimeout()
 {
